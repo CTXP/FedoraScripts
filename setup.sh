@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 
-# Repo info
 REPO="CTXP/FedoraScripts"
 BRANCH="main"
 
-# Fetch files from GitHub API
 echo "🔍 Fetching available scripts from GitHub..."
-FILES=$(curl -s "https://api.github.com/repos/${REPO}/contents/?ref=${BRANCH}" \
-        | jq -r '.[] | select(.type=="file") | .name')
 
-if [ -z "$FILES" ]; then
-    echo "⚠️ No scripts found in the repo!"
+# Fetch file names into an array
+mapfile -t FILES < <(curl -s "https://api.github.com/repos/${REPO}/contents/?ref=${BRANCH}" \
+                | jq -r '.[] | select(.type=="file") | .name')
+
+if [ ${#FILES[@]} -eq 0 ]; then
+    echo "⚠️ No scripts found!"
     exit 1
 fi
 
-# Let user select a script
+# Display menu using select
 echo "📄 Available scripts:"
-select SCRIPT in $FILES; do
-    if [ -n "$SCRIPT" ]; then
+select SCRIPT in "${FILES[@]}"; do
+    if [[ -n "$SCRIPT" ]]; then
         echo "✅ You selected: $SCRIPT"
         break
     else
@@ -25,9 +25,8 @@ select SCRIPT in $FILES; do
     fi
 done
 
-# Get the download URL
+# Construct download URL
 DOWNLOAD_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/${SCRIPT}"
 
-# Confirm
-echo "💻 Downloading and running $SCRIPT from $DOWNLOAD_URL ..."
+echo "💻 Downloading and running $SCRIPT ..."
 curl -sL "$DOWNLOAD_URL" | bash
