@@ -27,7 +27,7 @@ run_cmd() {
         echo -e "\n${RED}${BOLD}💥 ERROR:${RESET} ${RED}Command failed (exit code $STATUS)${RESET}"
         echo -e "${YELLOW}👉 Command:${RESET} $*"
 
-        read -rp "$(echo -e "${BOLD}❓ Continue anyway? (y/N): ${RESET}")" choice
+        read -rp "$(echo -e "${BOLD}❓ Continue anyway? (y/N): ${RESET}")" choice < /dev/tty
         case "$choice" in
             y|Y)
                 echo -e "${YELLOW}⚠️  Continuing despite error...${RESET}"
@@ -75,12 +75,12 @@ echo -e "  ${GREEN}1) None${RESET} (default)"
 echo -e "  ${BLUE}2) Portainer Server (UI)${RESET}"
 echo -e "  ${CYAN}3) Portainer Agent${RESET}"
 
-read -rp "👉 Selection [1]: " PORTAINER_CHOICE
+read -rp "👉 Selection [1]: " PORTAINER_CHOICE < /dev/tty
 PORTAINER_CHOICE=${PORTAINER_CHOICE:-1}
 
 PORTAINER_VERSION="latest"
 if [[ "$PORTAINER_CHOICE" == "2" || "$PORTAINER_CHOICE" == "3" ]]; then
-    read -rp "🏷️  Portainer version (default: latest): " VERSION_INPUT
+    read -rp "🏷️  Portainer version (default: latest): " VERSION_INPUT < /dev/tty
     PORTAINER_VERSION=${VERSION_INPUT:-latest}
 fi
 
