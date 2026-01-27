@@ -5,9 +5,9 @@ BRANCH="main"
 
 echo "🔍 Fetching available scripts from GitHub..."
 
-# Fetch file names into an array
+# Fetch file names into an array, excluding setup.sh
 mapfile -t FILES < <(curl -s "https://api.github.com/repos/${REPO}/contents/?ref=${BRANCH}" \
-                | jq -r '.[] | select(.type=="file") | .name')
+                | jq -r '.[] | select(.type=="file" and .name!="setup.sh") | .name')
 
 if [ ${#FILES[@]} -eq 0 ]; then
     echo "⚠️ No scripts found!"
@@ -22,15 +22,18 @@ done
 
 # Loop until valid input - redirect from /dev/tty to read from keyboard
 CHOICE=""
-read -rp "👉 Enter the number of the script to run: " CHOICE < /dev/tty
+while true; do
+    read -rp "👉 Enter the number of the script to run: " CHOICE < /dev/tty
     
-# Validate input: must be a number within the array bounds
-if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "${#FILES[@]}" ]; then
-    SCRIPT="${FILES[$((CHOICE-1))]}"
-    echo "✅ You selected: $SCRIPT"
-else
-    echo "⚠️ Invalid selection. Please enter a number between 1 and ${#FILES[@]}."
-fi
+    # Validate input: must be a number within the array bounds
+    if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "${#FILES[@]}" ]; then
+        SCRIPT="${FILES[$((CHOICE-1))]}"
+        echo "✅ You selected: $SCRIPT"
+        break
+    else
+        echo "⚠️ Invalid selection. Please enter a number between 1 and ${#FILES[@]}."
+    fi
+done
 
 # Construct download URL
 DOWNLOAD_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/${SCRIPT}"
