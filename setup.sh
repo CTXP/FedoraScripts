@@ -32,7 +32,6 @@ if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "${#FIL
 else
     echo "⚠️ Invalid selection. Please enter a number between 1 and ${#FILES[@]}."
 fi
-done
 
 # Construct download URL
 DOWNLOAD_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/${SCRIPT}"
