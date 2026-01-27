@@ -14,22 +14,25 @@ if [ ${#FILES[@]} -eq 0 ]; then
     exit 1
 fi
 
-# Display menu manuallyO
+# Display menu
 echo "📄 Available scripts:"
 for i in "${!FILES[@]}"; do
     printf "  %d) %s\n" $((i+1)) "${FILES[$i]}"
 done
 
-read -rp "👉 Enter the number of the script to run: " CHOICE
-
-# Validate input: must be a number within the array bounds
-if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "${#FILES[@]}" ]; then
-    SCRIPT="${FILES[$((CHOICE-1))]}"
-    echo "✅ You selected: $SCRIPT"
-    break
-else
-    echo "⚠️ Invalid selection. Please enter a number between 1 and ${#FILES[@]}."
-fi
+# Loop until valid input
+while true; do
+    read -rp "👉 Enter the number of the script to run: " CHOICE
+    
+    # Validate input: must be a number within the array bounds
+    if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "${#FILES[@]}" ]; then
+        SCRIPT="${FILES[$((CHOICE-1))]}"
+        echo "✅ You selected: $SCRIPT"
+        break
+    else
+        echo "⚠️ Invalid selection. Please enter a number between 1 and ${#FILES[@]}."
+    fi
+done
 
 # Construct download URL
 DOWNLOAD_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/${SCRIPT}"
