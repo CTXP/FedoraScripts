@@ -37,7 +37,6 @@ run_cmd() {
                 exit 1
                 ;;
         esac
-        done
     else
         echo -e "${GREEN}✅ Success${RESET}"
     fi
