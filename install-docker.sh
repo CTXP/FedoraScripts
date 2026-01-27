@@ -12,25 +12,38 @@ MAGENTA="\e[35m"
 BOLD="\e[1m"
 RESET="\e[0m"
 
+# ===== Improved run_cmd: prompts user on failure =====
 run_cmd() {
     echo -e "\n${CYAN}${BOLD}🚀 Running:${RESET} ${BLUE}$*${RESET}"
-    "$@"
-    local status=$?
 
-    if [ $status -ne 0 ]; then
-        echo -e "\n${RED}${BOLD}💥 ERROR:${RESET} ${RED}Command failed${RESET}"
-        echo -e "${YELLOW}👉 Command:${RESET} $*\n"
+    # Capture stdout + stderr
+    OUTPUT=$("$@" 2>&1)
+    STATUS=$?
 
-        read -rp "$(echo -e "${BOLD}❓ Continue anyway? (y/N): ${RESET}")" choice
-        case "$choice" in
-            y|Y)
-                echo -e "${YELLOW}⚠️  Continuing despite error...${RESET}"
-                ;;
-            *)
-                echo -e "${RED}${BOLD}🛑 Script terminated by user.${RESET}"
-                exit 1
-                ;;
-        esac
+    # Show output
+    echo "$OUTPUT"
+
+    if [ $STATUS -ne 0 ]; then
+        echo -e "\n${RED}${BOLD}💥 ERROR:${RESET} ${RED}Command failed (exit code $STATUS)${RESET}"
+        echo -e "${YELLOW}👉 Command:${RESET} $*"
+
+        # Prompt user to continue or abort
+        while true; do
+            read -rp "$(echo -e "${BOLD}❓ Do you want to continue anyway? (y/N): ${RESET}")" choice
+            case "$choice" in
+                y|Y)
+                    echo -e "${YELLOW}⚠️  Continuing despite error...${RESET}"
+                    break
+                    ;;
+                n|N|"")
+                    echo -e "${RED}${BOLD}🛑 Script terminated by user.${RESET}"
+                    exit 1
+                    ;;
+                *)
+                    echo -e "${YELLOW}⚠️  Please enter y (yes) or n (no).${RESET}"
+                    ;;
+            esac
+        done
     else
         echo -e "${GREEN}✅ Success${RESET}"
     fi
