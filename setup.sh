@@ -20,9 +20,10 @@ for i in "${!FILES[@]}"; do
     printf "  %d) %s\n" $((i+1)) "${FILES[$i]}"
 done
 
-# Loop until valid input
+# Loop until valid input - redirect from /dev/tty to read from keyboard
+CHOICE=""
 while true; do
-    read -rp "👉 Enter the number of the script to run: " CHOICE
+    read -rp "👉 Enter the number of the script to run: " CHOICE < /dev/tty
     
     # Validate input: must be a number within the array bounds
     if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "${#FILES[@]}" ]; then
@@ -37,8 +38,8 @@ done
 # Construct download URL
 DOWNLOAD_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/${SCRIPT}"
 
-# Confirm and run
-read -rp "💻 Do you want to download and execute $SCRIPT? (y/N): " CONFIRM
+# Confirm and run - redirect from /dev/tty
+read -rp "💻 Do you want to download and execute $SCRIPT? (y/N): " CONFIRM < /dev/tty
 CONFIRM=${CONFIRM:-N}
 
 if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
