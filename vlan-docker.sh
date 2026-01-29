@@ -154,7 +154,7 @@ fi
 echo -e "${BOLD}Docker Network:${NC} $NETWORK_NAME"
 
 echo ""
-read -rp "${YELLOW}Do you want to proceed with this configuration? ${NC}${BOLD}(y/N)${NC}: " CONFIRM < /dev/tty
+read -rp "$(echo -e ${YELLOW}Do you want to proceed with this configuration? ${NC}${BOLD}(y/N)${NC}: )" CONFIRM < /dev/tty
 CONFIRM=${CONFIRM:-N}
 
 if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
