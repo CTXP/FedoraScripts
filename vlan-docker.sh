@@ -21,6 +21,9 @@ SUBNET=""
 GATEWAY=""
 NETWORK_NAME=""
 IP_RANGE=""
+SHIM_INTERFACE=""
+SHIM_PARENT=""
+CREATE_SHIM="y"
 
 # ===== Message Helpers =====
 print_info() {
@@ -185,7 +188,9 @@ step_vlan_config() {
         if validate_vlan_id "$VLAN_ID"; then
             VLAN_INTERFACE="${PARENT_INTERFACE}.${VLAN_ID}"
             CONNECTION_NAME="vlan${VLAN_ID}"
+            SHIM_INTERFACE="macvlan${VLAN_ID}-shim"
             print_success "VLAN interface will be: $VLAN_INTERFACE"
+            print_success "Shim interface will be: $SHIM_INTERFACE"
             break
         fi
     done
@@ -245,6 +250,54 @@ step_ip_range() {
     fi
 }
 
+step_shim_config() {
+    print_header "Step 7: Macvlan Shim (Host-to-Container Communication)"
+    
+    echo -e "${YELLOW}${BOLD}What is a Macvlan Shim?${NC}"
+    echo -e "By default, the host cannot communicate directly with containers on a macvlan network."
+    echo -e "A shim interface allows the host to talk to containers on the macvlan network."
+    echo ""
+    echo -e "${CYAN}Benefits:${NC}"
+    echo -e "  • Host can access services running in containers"
+    echo -e "  • Required for management/monitoring from the host"
+    echo -e "  • Enables local development and testing"
+    echo ""
+    
+    read -rp "$(echo -e "${YELLOW}${BOLD}Create macvlan shim interface? (Y/n): ${NC}")" CREATE_SHIM < /dev/tty
+    CREATE_SHIM=${CREATE_SHIM:-y}
+    
+    if [[ "$CREATE_SHIM" =~ ^[Yy]$ ]]; then
+        echo ""
+        echo -e "${CYAN}${BOLD}Shim Parent Interface:${NC}"
+        echo -e "The shim can be attached to either:"
+        echo -e "  ${GREEN}1) ${VLAN_INTERFACE}${NC} - VLAN interface (recommended if using VLANs)"
+        echo -e "  ${BLUE}2) ${PARENT_INTERFACE}${NC} - Physical interface (works for untagged traffic)"
+        echo ""
+        echo -e "${YELLOW}Note:${NC} Both options work. Choose based on your network design."
+        echo ""
+        
+        read -rp "$(echo -e "${CYAN}${BOLD}Attach shim to which interface? (1/2) ${NC}[1]: ")" shim_choice < /dev/tty
+        shim_choice=${shim_choice:-1}
+        
+        case "$shim_choice" in
+            1)
+                SHIM_PARENT="$VLAN_INTERFACE"
+                print_success "Shim will be attached to: $SHIM_PARENT (VLAN interface)"
+                ;;
+            2)
+                SHIM_PARENT="$PARENT_INTERFACE"
+                print_success "Shim will be attached to: $SHIM_PARENT (physical interface)"
+                ;;
+            *)
+                print_warning "Invalid choice, using default: $VLAN_INTERFACE"
+                SHIM_PARENT="$VLAN_INTERFACE"
+                ;;
+        esac
+    else
+        print_warning "Skipping shim interface creation"
+    fi
+}
+
 # ===== Display Summary =====
 display_summary() {
     print_header "Configuration Summary"
@@ -258,6 +311,12 @@ display_summary() {
         echo -e "${BOLD}IP Range:${NC} $IP_RANGE"
     fi
     echo -e "${BOLD}Docker Network:${NC} $NETWORK_NAME"
+    if [[ "$CREATE_SHIM" =~ ^[Yy]$ ]]; then
+        echo -e "${BOLD}Shim Interface:${NC} $SHIM_INTERFACE ${GREEN}(will be created)${NC}"
+        echo -e "${BOLD}Shim Parent:${NC} $SHIM_PARENT"
+    else
+        echo -e "${BOLD}Shim Interface:${NC} ${YELLOW}(skipped)${NC}"
+    fi
     echo ""
 }
 
@@ -347,18 +406,246 @@ activate_vlan() {
     fi
 }
 
+# ===== Create Macvlan Shim =====
+create_macvlan_shim() {
+    if [[ ! "$CREATE_SHIM" =~ ^[Yy]$ ]]; then
+        print_info "Skipping macvlan shim creation"
+        return 0
+    fi
+    
+    print_header "Creating Macvlan Shim Interface"
+    
+    # Check if shim already exists
+    if ip link show "$SHIM_INTERFACE" &> /dev/null; then
+        print_warning "Shim interface '$SHIM_INTERFACE' already exists"
+        
+        # Check current parent
+        local current_parent
+        current_parent=$(ip -d link show "$SHIM_INTERFACE" | grep -oP 'link/ether.*' | head -n1)
+        local existing_parent
+        existing_parent=$(ip link show "$SHIM_INTERFACE" | grep -oP '@\K[^:]+')
+        
+        if [ "$existing_parent" != "$SHIM_PARENT" ]; then
+            print_warning "Existing shim is attached to '$existing_parent', but you selected '$SHIM_PARENT'"
+        fi
+        
+        read -rp "$(echo -e "${YELLOW}${BOLD}Do you want to delete and recreate it? (y/N): ${NC}")" delete_shim < /dev/tty
+        delete_shim=${delete_shim:-N}
+        
+        if [[ "$delete_shim" =~ ^[Yy]$ ]]; then
+            print_info "Deleting existing shim interface..."
+            # Remove the route first
+            if ip route show | grep -q "$SHIM_INTERFACE"; then
+                sudo ip route del "$SUBNET" dev "$SHIM_INTERFACE" 2>/dev/null || true
+            fi
+            # Delete the interface
+            if sudo ip link delete "$SHIM_INTERFACE" &> /dev/null; then
+                print_success "Deleted existing shim interface"
+            else
+                print_error "Failed to delete shim interface"
+                return 1
+            fi
+        else
+            print_info "Using existing shim interface"
+            # Ensure route exists
+            if ! ip route show | grep -q "$SHIM_INTERFACE"; then
+                print_info "Adding missing route for shim interface..."
+                if sudo ip route add "$SUBNET" dev "$SHIM_INTERFACE"; then
+                    print_success "Route added"
+                else
+                    print_warning "Failed to add route (may already exist)"
+                fi
+            fi
+            return 0
+        fi
+    fi
+    
+    # Wait for parent interface to be ready if it's the VLAN interface
+    if [ "$SHIM_PARENT" = "$VLAN_INTERFACE" ]; then
+        print_info "Waiting for VLAN interface to be ready..."
+        local count=0
+        local max_wait=10
+        while [ $count -lt $max_wait ]; do
+            if ip link show "$VLAN_INTERFACE" &> /dev/null && \
+               ip link show "$VLAN_INTERFACE" | grep -q "state UP"; then
+                break
+            fi
+            sleep 1
+            count=$((count + 1))
+        done
+        
+        if [ $count -eq $max_wait ]; then
+            print_warning "VLAN interface may not be fully ready, but continuing..."
+        fi
+    fi
+    
+    # Create macvlan shim interface
+    print_info "Creating macvlan shim interface '$SHIM_INTERFACE' on '$SHIM_PARENT'..."
+    if sudo ip link add "$SHIM_INTERFACE" link "$SHIM_PARENT" type macvlan mode bridge; then
+        print_success "Shim interface created"
+    else
+        print_error "Failed to create shim interface"
+        return 1
+    fi
+    
+    # Bring the interface up
+    print_info "Bringing shim interface UP..."
+    if sudo ip link set "$SHIM_INTERFACE" up; then
+        print_success "Shim interface is UP"
+    else
+        print_error "Failed to bring shim interface UP"
+        return 1
+    fi
+    
+    # Add route to subnet via shim
+    print_info "Adding route for container subnet..."
+    if sudo ip route add "$SUBNET" dev "$SHIM_INTERFACE"; then
+        print_success "Route added: $SUBNET dev $SHIM_INTERFACE"
+    else
+        # Check if route already exists
+        if ip route show | grep -q "$SHIM_INTERFACE"; then
+            print_success "Route already exists"
+        else
+            print_warning "Failed to add route"
+        fi
+    fi
+    
+    # Verify configuration
+    print_info "Verifying shim configuration..."
+    if ip link show "$SHIM_INTERFACE" | grep -q "state UP"; then
+        print_success "Shim interface is operational"
+    else
+        print_warning "Shim interface exists but may not be fully operational"
+    fi
+    
+    if ip route show | grep -q "$SHIM_INTERFACE"; then
+        print_success "Route is configured correctly"
+    else
+        print_warning "Route configuration may need verification"
+    fi
+    
+    return 0
+}
+
+# ===== Make Shim Persistent =====
+make_shim_persistent() {
+    if [[ ! "$CREATE_SHIM" =~ ^[Yy]$ ]]; then
+        return 0
+    fi
+    
+    print_header "Making Shim Persistent"
+    
+    local script_path="/usr/local/bin/setup-macvlan-shim-${VLAN_ID}.sh"
+    local service_path="/etc/systemd/system/macvlan-shim-${VLAN_ID}.service"
+    
+    print_info "Creating startup script..."
+    
+    # Create the startup script
+    sudo tee "$script_path" > /dev/null <<EOF
+#!/bin/bash
+# Macvlan shim setup script for VLAN ${VLAN_ID}
+# Generated by vlan-docker.sh
+
+# Wait for parent interface to be ready
+timeout=30
+count=0
+while [ \$count -lt \$timeout ]; do
+    if ip link show ${SHIM_PARENT} &> /dev/null; then
+        # For VLAN interfaces, ensure they're UP
+        if [[ "${SHIM_PARENT}" == *"."* ]]; then
+            if ip link show ${SHIM_PARENT} | grep -q "state UP"; then
+                break
+            fi
+        else
+            break
+        fi
+    fi
+    sleep 1
+    count=\$((count + 1))
+done
+
+if [ \$count -eq \$timeout ]; then
+    echo "Timeout waiting for ${SHIM_PARENT} to be ready" >&2
+    exit 1
+fi
+
+# Check if shim interface already exists
+if ! ip link show ${SHIM_INTERFACE} &> /dev/null; then
+    # Create macvlan shim interface
+    ip link add ${SHIM_INTERFACE} link ${SHIM_PARENT} type macvlan mode bridge
+    ip link set ${SHIM_INTERFACE} up
+fi
+
+# Add route if it doesn't exist
+if ! ip route show | grep -q "${SHIM_INTERFACE}"; then
+    ip route add ${SUBNET} dev ${SHIM_INTERFACE}
+fi
+
+exit 0
+EOF
+    
+    sudo chmod +x "$script_path"
+    print_success "Startup script created: $script_path"
+    
+    # Create systemd service
+    print_info "Creating systemd service..."
+    
+    # Determine dependencies based on shim parent
+    local after_deps="network-online.target"
+    local wants_deps="network-online.target"
+    
+    if [ "$SHIM_PARENT" = "$VLAN_INTERFACE" ]; then
+        after_deps="network-online.target NetworkManager.service"
+        wants_deps="network-online.target"
+    fi
+    
+    sudo tee "$service_path" > /dev/null <<EOF
+[Unit]
+Description=Macvlan Shim Interface for VLAN ${VLAN_ID}
+After=${after_deps}
+Wants=${wants_deps}
+Before=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=${script_path}
+ExecStop=/sbin/ip link delete ${SHIM_INTERFACE}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    print_success "Systemd service created: $service_path"
+    
+    # Enable and start the service
+    print_info "Enabling systemd service..."
+    if sudo systemctl daemon-reload && \
+       sudo systemctl enable "macvlan-shim-${VLAN_ID}.service" &> /dev/null; then
+        print_success "Service enabled and will start on boot"
+    else
+        print_warning "Failed to enable service, shim may not persist after reboot"
+    fi
+    
+    return 0
+}
+
 # ===== Docker Network Setup =====
 setup_docker_network() {
+    print_header "Creating Docker Network"
+    
     print_info "Checking for existing Docker network..."
     
-    if docker network inspect "$NETWORK_NAME" &> /dev/null; then
+    if sudo docker network inspect "$NETWORK_NAME" &> /dev/null; then
         print_warning "Docker network '$NETWORK_NAME' already exists"
         read -rp "$(echo -e "${YELLOW}${BOLD}Do you want to delete and recreate it? (y/N): ${NC}")" delete_network < /dev/tty
         delete_network=${delete_network:-N}
         
         if [[ "$delete_network" =~ ^[Yy]$ ]]; then
             print_info "Deleting existing Docker network..."
-            if docker network rm "$NETWORK_NAME" &> /dev/null; then
+            if sudo docker network rm "$NETWORK_NAME" &> /dev/null; then
                 print_success "Deleted existing Docker network"
             else
                 print_error "Failed to delete Docker network (containers might be using it)"
@@ -373,7 +660,7 @@ setup_docker_network() {
     # Build Docker network create command
     print_info "Creating Docker macvlan network '$NETWORK_NAME'..."
     
-    local create_cmd="docker network create -d macvlan \
+    local create_cmd="sudo docker network create -d macvlan \
         --subnet=$SUBNET \
         --gateway=$GATEWAY"
     
@@ -403,13 +690,22 @@ display_usage_info() {
     
     echo -e "${GREEN}${BOLD}✓ VLAN connection '$CONNECTION_NAME' is configured${NC}"
     echo -e "${GREEN}${BOLD}✓ VLAN interface '$VLAN_INTERFACE' is UP${NC}"
+    if [[ "$CREATE_SHIM" =~ ^[Yy]$ ]]; then
+        echo -e "${GREEN}${BOLD}✓ Macvlan shim '$SHIM_INTERFACE' is created and persistent${NC}"
+        echo -e "${GREEN}${BOLD}✓ Shim attached to '$SHIM_PARENT'${NC}"
+    fi
     echo -e "${GREEN}${BOLD}✓ Docker network '$NETWORK_NAME' is ready${NC}"
     echo ""
     
     echo -e "${CYAN}${BOLD}Connection Details:${NC}"
-    echo -e "  ${YELLOW}View connection: ${NC}nmcli connection show $CONNECTION_NAME"
-    echo -e "  ${YELLOW}View device: ${NC}nmcli device show $VLAN_INTERFACE"
-    echo -e "  ${YELLOW}View network: ${NC}docker network inspect $NETWORK_NAME"
+    echo -e "  ${YELLOW}View VLAN connection: ${NC}nmcli connection show $CONNECTION_NAME"
+    echo -e "  ${YELLOW}View VLAN device: ${NC}nmcli device show $VLAN_INTERFACE"
+    if [[ "$CREATE_SHIM" =~ ^[Yy]$ ]]; then
+        echo -e "  ${YELLOW}View shim interface: ${NC}ip -d link show $SHIM_INTERFACE"
+        echo -e "  ${YELLOW}View shim route: ${NC}ip route show | grep $SHIM_INTERFACE"
+        echo -e "  ${YELLOW}Check shim service: ${NC}sudo systemctl status macvlan-shim-${VLAN_ID}.service"
+    fi
+    echo -e "  ${YELLOW}View Docker network: ${NC}sudo docker network inspect $NETWORK_NAME"
     echo ""
     
     echo -e "${CYAN}${BOLD}Using the Network:${NC}"
@@ -433,6 +729,14 @@ display_usage_info() {
     echo -e "       external: true${NC}"
     echo ""
     
+    if [[ "$CREATE_SHIM" =~ ^[Yy]$ ]]; then
+        echo -e "${CYAN}${BOLD}Host-to-Container Communication:${NC}"
+        echo -e "  ${GREEN}✓${NC} The host can now communicate with containers on this network"
+        echo -e "  ${GREEN}✓${NC} The shim interface will persist across reboots"
+        echo -e "  ${YELLOW}Test:${NC} ping <container-ip>"
+        echo ""
+    fi
+    
     print_success "All done!"
 }
 
@@ -442,6 +746,7 @@ main() {
     print_header "Docker Macvlan Network Setup"
     
     echo -e "${BOLD}This script will help you create a Docker macvlan network${NC}"
+    echo -e "${BOLD}with optional host-to-container communication via a macvlan shim${NC}"
     echo ""
     
     check_dependencies
@@ -454,6 +759,7 @@ main() {
     step_gateway_config
     step_network_name
     step_ip_range
+    step_shim_config
     
     # Display and confirm
     display_summary
@@ -468,6 +774,15 @@ main() {
     if ! activate_vlan; then
         print_error "Failed to activate VLAN"
         exit 1
+    fi
+    
+    if ! create_macvlan_shim; then
+        print_error "Failed to create macvlan shim"
+        exit 1
+    fi
+    
+    if ! make_shim_persistent; then
+        print_warning "Failed to make shim persistent (manual configuration may be needed)"
     fi
     
     if ! setup_docker_network; then
