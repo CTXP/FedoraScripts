@@ -81,7 +81,7 @@ CONFIRM=${CONFIRM:-N}
 
 if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
     print_info "Downloading and executing $SCRIPT..."
-    if curl -sL "$DOWNLOAD_URL" | bash; then
+    if curl -sL "$DOWNLOAD_URL" | sudo bash; then
         print_success "Script completed successfully"
     else
         print_error "Script execution failed"
