@@ -32,12 +32,6 @@ print_header() {
     echo -e "${BOLD}${CYAN}═══════════════════════════════════════════════${NC}\n"
 }
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then 
-    print_error "This script must be run as root (use sudo)"
-    exit 1
-fi
-
 # Check if nmcli is available
 if ! command -v nmcli &> /dev/null; then
     print_error "nmcli (NetworkManager) is not installed"
