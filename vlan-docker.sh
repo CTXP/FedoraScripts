@@ -309,4 +309,4 @@ echo -e "       $NETWORK_NAME:"
 echo -e "         external: true${NC}"
 echo ""
 
-print_success "All done! 🎉"
+print_success "All done!"

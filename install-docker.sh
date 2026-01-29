@@ -14,7 +14,7 @@ RESET="\e[0m"
 
 # ===== Improved run_cmd: prompts user on failure =====
 run_cmd() {
-    echo -e "\n${CYAN}${BOLD}🚀 Running:${RESET} ${BLUE}$*${RESET}"
+    echo -e "\n${CYAN}${BOLD}Running:${RESET} ${BLUE}$*${RESET}"
 
     # Capture stdout + stderr
     OUTPUT=$("$@" 2>&1)
@@ -24,34 +24,34 @@ run_cmd() {
     echo "$OUTPUT"
 
     if [ $STATUS -ne 0 ]; then
-        echo -e "\n${RED}${BOLD}💥 ERROR:${RESET} ${RED}Command failed (exit code $STATUS)${RESET}"
-        echo -e "${YELLOW}👉 Command:${RESET} $*"
+        echo -e "\n${RED}${BOLD}ERROR:${RESET} ${RED}Command failed (exit code $STATUS)${RESET}"
+        echo -e "${YELLOW}Command:${RESET} $*"
 
-        read -rp "$(echo -e "${BOLD}❓ Continue anyway? (y/N): ${RESET}")" choice < /dev/tty
+        read -rp "$(echo -e "${BOLD}Continue anyway? (y/N): ${RESET}")" choice < /dev/tty
         case "$choice" in
             y|Y)
-                echo -e "${YELLOW}⚠️  Continuing despite error...${RESET}"
+                echo -e "${YELLOW}Continuing despite error...${RESET}"
                 ;;
             *)
-                echo -e "${RED}${BOLD}🛑 Script terminated by user.${RESET}"
+                echo -e "${RED}${BOLD}Script terminated by user.${RESET}"
                 exit 1
                 ;;
         esac
     else
-        echo -e "${GREEN}✅ Success${RESET}"
+        echo -e "${GREEN}Success${RESET}"
     fi
 }
 
 header() {
     echo -e "\n${BOLD}${MAGENTA}══════════════════════════════════════${RESET}"
-    echo -e "${BOLD}${MAGENTA}🧭  $1${RESET}"
+    echo -e "${BOLD}${MAGENTA}$1${RESET}"
     echo -e "${BOLD}${MAGENTA}══════════════════════════════════════${RESET}"
 }
 
 # ===== Start =====
 header "Docker Installation Script (Fedora)"
 
-echo -e "${CYAN}🐳 Preparing Docker environment...${RESET}"
+echo -e "${CYAN}Preparing Docker environment...${RESET}"
 
 run_cmd sudo dnf install -y dnf-plugins-core
 
@@ -70,27 +70,27 @@ run_cmd sudo docker info
 # ===== Portainer choice =====
 header "Portainer Installation (Optional)"
 
-echo -e "${BOLD}📦 Choose Portainer option:${RESET}"
+echo -e "${BOLD}Choose Portainer option:${RESET}"
 echo -e "  ${GREEN}1) None${RESET} (default)"
 echo -e "  ${BLUE}2) Portainer Server (UI)${RESET}"
 echo -e "  ${CYAN}3) Portainer Agent${RESET}"
 
-read -rp "👉 Selection [1]: " PORTAINER_CHOICE < /dev/tty
+read -rp "Selection [1]: " PORTAINER_CHOICE < /dev/tty
 PORTAINER_CHOICE=${PORTAINER_CHOICE:-1}
 
 PORTAINER_VERSION="latest"
 if [[ "$PORTAINER_CHOICE" == "2" || "$PORTAINER_CHOICE" == "3" ]]; then
-    read -rp "🏷️  Portainer version (default: latest): " VERSION_INPUT < /dev/tty
+    read -rp "Portainer version (default: latest): " VERSION_INPUT < /dev/tty
     PORTAINER_VERSION=${VERSION_INPUT:-latest}
 fi
 
 # ===== Portainer install =====
 case "$PORTAINER_CHOICE" in
     1)
-        echo -e "${YELLOW}ℹ️  Skipping Portainer installation.${RESET}"
+        echo -e "${YELLOW}Skipping Portainer installation.${RESET}"
         ;;
     2)
-        header "Installing Portainer Server 🖥️ (${PORTAINER_VERSION})"
+        header "Installing Portainer Server(${PORTAINER_VERSION})"
 
         run_cmd sudo docker volume create portainer_data
 
@@ -104,7 +104,7 @@ case "$PORTAINER_CHOICE" in
           portainer/portainer-ce:${PORTAINER_VERSION}
         ;;
     3)
-        header "Installing Portainer Agent 🤖 (${PORTAINER_VERSION})"
+        header "Installing Portainer Agent(${PORTAINER_VERSION})"
 
         run_cmd sudo docker run -d \
           --name portainer_agent \
@@ -115,9 +115,9 @@ case "$PORTAINER_CHOICE" in
           portainer/agent:${PORTAINER_VERSION}
         ;;
     *)
-        echo -e "${RED}❌ Invalid selection. Skipping Portainer.${RESET}"
+        echo -e "${RED}valid selection. Skipping Portainer.${RESET}"
         ;;
 esac
 
-echo -e "\n${GREEN}${BOLD}🎉 All done! Script completed successfully.${RESET}"
-echo -e "${CYAN}🐳 Docker is installed and ready to use.${RESET}"
+echo -e "\n${GREEN}${BOLD}All done! Script completed successfully.${RESET}"
+echo -e "${CYAN}Docker is installed and ready to use.${RESET}"
