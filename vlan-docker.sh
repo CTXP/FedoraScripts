@@ -60,7 +60,7 @@ print_header "Step 1: Network Interface"
 print_info "Available network interfaces:"
 ip -br link show | grep -v "lo" | awk '{print "  - " $1}' | sed 's/@.*//'
 
-read -rp "$(echo -e ${CYAN}Enter parent interface name ${NC}${BOLD}[e.g., eno1, eth0]${NC}: )" PARENT_INTERFACE < /dev/tty
+read -rp "$(echo -e ${CYAN}Enter parent interface name ${NC}${BOLD}[e.g., eno1, eth0]${NC}:) " PARENT_INTERFACE < /dev/tty
 
 if [ -z "$PARENT_INTERFACE" ]; then
     print_error "Parent interface cannot be empty"
@@ -76,7 +76,7 @@ print_success "Using parent interface: $PARENT_INTERFACE"
 
 # Step 2: Get VLAN ID
 print_header "Step 2: VLAN Configuration"
-read -rp "$(echo -e ${CYAN}Enter VLAN ID ${NC}${BOLD}[e.g., 11, 20, 100]${NC}: )" VLAN_ID < /dev/tty
+read -rp "$(echo -e ${CYAN}Enter VLAN ID ${NC}${BOLD}[e.g., 11, 20, 100]${NC}:) " VLAN_ID < /dev/tty
 
 if [ -z "$VLAN_ID" ]; then
     print_error "VLAN ID cannot be empty"
@@ -94,7 +94,7 @@ print_success "VLAN interface will be: $VLAN_INTERFACE"
 
 # Step 3: Get subnet
 print_header "Step 3: Network Subnet"
-read -rp "$(echo -e ${CYAN}Enter subnet ${NC}${BOLD}[e.g., 10.32.11.0/24]${NC}: )" SUBNET < /dev/tty
+read -rp "$(echo -e ${CYAN}Enter subnet ${NC}${BOLD}[e.g., 10.32.11.0/24]${NC}:) " SUBNET < /dev/tty
 
 if [ -z "$SUBNET" ]; then
     print_error "Subnet cannot be empty"
@@ -110,7 +110,7 @@ print_success "Using subnet: $SUBNET"
 
 # Step 4: Get gateway
 print_header "Step 4: Gateway Configuration"
-read -rp "$(echo -e ${CYAN}Enter gateway IP ${NC}${BOLD}[e.g., 10.32.11.1]${NC}: )" GATEWAY < /dev/tty
+read -rp "$(echo -e ${CYAN}Enter gateway IP ${NC}${BOLD}[e.g., 10.32.11.1]${NC}:) " GATEWAY < /dev/tty
 
 if [ -z "$GATEWAY" ]; then
     print_error "Gateway cannot be empty"
@@ -126,7 +126,7 @@ print_success "Using gateway: $GATEWAY"
 
 # Step 5: Get Docker network name
 print_header "Step 5: Docker Network Name"
-read -rp "$(echo -e ${CYAN}Enter Docker network name ${NC}${BOLD}[e.g., service-vlan]${NC}: )" NETWORK_NAME < /dev/tty
+read -rp "$(echo -e ${CYAN}Enter Docker network name ${NC}${BOLD}[e.g., service-vlan]${NC}:) " NETWORK_NAME < /dev/tty
 
 if [ -z "$NETWORK_NAME" ]; then
     print_error "Network name cannot be empty"
@@ -138,7 +138,7 @@ print_success "Docker network name: $NETWORK_NAME"
 # Step 6: Optional IP range
 print_header "Step 6: IP Range (Optional)"
 echo -e "${YELLOW}You can limit Docker to a specific IP range within the subnet${NC}"
-read -rp "$(echo -e ${CYAN}Enter IP range ${NC}${BOLD}[leave empty to use full subnet]${NC}: )" IP_RANGE < /dev/tty
+read -rp "$(echo -e ${CYAN}Enter IP range ${NC}${BOLD}[leave empty to use full subnet]${NC}:) " IP_RANGE < /dev/tty
 
 # Summary
 print_header "Configuration Summary"
@@ -154,7 +154,7 @@ fi
 echo -e "${BOLD}Docker Network:${NC} $NETWORK_NAME"
 
 echo ""
-read -rp "$(echo -e ${YELLOW}Do you want to proceed with this configuration? ${NC}${BOLD}(y/N)${NC}: )" CONFIRM < /dev/tty
+read -rp "$(echo -e ${YELLOW}Do you want to proceed with this configuration? ${NC}${BOLD}(y/N)${NC}:) " CONFIRM < /dev/tty
 CONFIRM=${CONFIRM:-N}
 
 if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
@@ -169,7 +169,7 @@ print_header "Creating Configuration"
 print_info "Checking for existing VLAN connection..."
 if nmcli connection show "$CONNECTION_NAME" &> /dev/null; then
     print_warning "VLAN connection '$CONNECTION_NAME' already exists"
-    read -rp "$(echo -e ${YELLOW}Do you want to delete and recreate it? ${NC}${BOLD}(y/N)${NC}: )" DELETE_VLAN < /dev/tty
+    read -rp "$(echo -e ${YELLOW}Do you want to delete and recreate it? ${NC}${BOLD}(y/N)${NC}:) " DELETE_VLAN < /dev/tty
     DELETE_VLAN=${DELETE_VLAN:-N}
     
     if [[ "$DELETE_VLAN" =~ ^[Yy]$ ]]; then
@@ -233,7 +233,7 @@ fi
 print_info "Checking for existing Docker network..."
 if docker network inspect "$NETWORK_NAME" &> /dev/null; then
     print_warning "Docker network '$NETWORK_NAME' already exists"
-    read -rp "$(echo -e ${YELLOW}Do you want to delete and recreate it? ${NC}${BOLD}(y/N)${NC}: )" DELETE_NETWORK < /dev/tty
+    read -rp "$(echo -e ${YELLOW}Do you want to delete and recreate it? ${NC}${BOLD}(y/N)${NC}:) " DELETE_NETWORK < /dev/tty
     DELETE_NETWORK=${DELETE_NETWORK:-N}
     
     if [[ "$DELETE_NETWORK" =~ ^[Yy]$ ]]; then
