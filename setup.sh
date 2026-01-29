@@ -55,7 +55,7 @@ fi
 # Display menu
 print_header "Available Scripts"
 for i in "${!FILES[@]}"; do
-    echo -e "  %s%d)%s %s\n" "${CYAN}" $((i+1)) "${NC}" "${FILES[$i]}"
+    echo -e "${CYAN} $((i+1)) ${NC} ${FILES[$i]}"
 done
 echo ""
 
