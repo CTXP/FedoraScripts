@@ -61,7 +61,7 @@ echo ""
 
 # Prompt until valid selection
 while true; do
-    read -rp "$(echo -e ${CYAN}Enter the number of the script to run${NC}${BOLD}: ${NC}) " CHOICE < /dev/tty
+    read -rp "$(echo -e ${CYAN}Enter the number of the script to run${NC}${BOLD}: ${NC})" CHOICE < /dev/tty
 
     if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "${#FILES[@]}" ]; then
         SCRIPT="${FILES[$((CHOICE-1))]}"
