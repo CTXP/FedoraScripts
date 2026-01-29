@@ -61,7 +61,7 @@ echo ""
 
 # Prompt until valid selection
 while true; do
-    read -rp "${CYAN}Enter the number of the script to run${NC}${BOLD}: ${NC}" CHOICE < /dev/tty
+    read -rp "$(echo -e ${CYAN}Enter the number of the script to run${NC}${BOLD}: ${NC}) " CHOICE < /dev/tty
 
     if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "${#FILES[@]}" ]; then
         SCRIPT="${FILES[$((CHOICE-1))]}"
@@ -76,7 +76,7 @@ DOWNLOAD_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/${SCRIPT}"
 
 # Confirmation
 echo ""
-read -rp "${YELLOW}Do you want to download and execute ${BOLD}${SCRIPT}${NC}${YELLOW}? ${BOLD}(y/N)${NC}: " CONFIRM < /dev/tty
+read -rp "$(echo -e ${YELLOW}Do you want to download and execute ${BOLD}${SCRIPT}${NC}${YELLOW}? ${BOLD}(y/N)${NC}:) " CONFIRM < /dev/tty
 CONFIRM=${CONFIRM:-N}
 
 if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
